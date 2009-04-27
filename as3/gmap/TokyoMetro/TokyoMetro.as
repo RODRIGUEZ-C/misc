@@ -25,7 +25,7 @@ public class TokyoMetro extends Sprite {
 	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
 
 	public function TokyoMetro() {
-		debug_text = create_static_text(440, 0, 200, 16, "");
+		debug_text = create_static_text(stage.stageWidth-200, 0, 200, 16, "");
 		stage.addChild(debug_text);
 
 		Data.init();
@@ -33,7 +33,7 @@ public class TokyoMetro extends Sprite {
 		map = new Map();
 		map.version = "map_flex_1_3.swc";
 		map.key = "ABQIAAAAYPjOknrO2nVrwswpM6J3shSo_w4dtRuu9MOazvQzIrXefBNXZxQEBXRTuZieD-FSmmswkvaAHqatfw";
-		map.setSize(new Point(640, 480));
+		map.setSize(new Point(800, 600));
 		map.addEventListener(MapEvent.MAP_READY, function (event:*):void {
 			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
@@ -43,7 +43,7 @@ public class TokyoMetro extends Sprite {
 		});
 		addChild(map);
 
-		var y:int = 440;
+		var y:int = 600 - 40;
 
 		stage.addChild(create_static_text(100, y, 40, 20, "出発駅"));
 		from = create_input_box(140, y, 60, 20);

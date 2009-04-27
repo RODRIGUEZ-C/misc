@@ -28,9 +28,11 @@ public class DijkstraAnimation {
 	public function is_end():Boolean { return b_end; }
 
 	public function execute(from:String, to:String, f:Function):void {
+		function nullcb(st:String, pre:String, cost:Number):void {}
+
 		init(from, to);
 		while (!b_end) {
-			step(undefined);
+			step(nullcb);
 		}
 	}
 
@@ -60,7 +62,7 @@ public class DijkstraAnimation {
 		if (!b_end) {
 			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
 			var v_star:String = left[v_star_idx];
-			if (f != undefined) f(v_star, predecessor[v_star], distance[v_star]);
+			f(v_star, predecessor[v_star], distance[v_star]);
 			S.push(v_star);
 			if (v_star == z) {
 				b_end = true;
