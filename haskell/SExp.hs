@@ -30,7 +30,6 @@ showCons a d
 	| otherwise	= "(" ++ show a ++ showCdr d ++ ")"
 	where
 		single (Cons a Nil) = True
-		single (Cons _ _)   = False
 		single _            = False
 
 		showCdr (Cons a d)  = " " ++ show a ++ showCdr d

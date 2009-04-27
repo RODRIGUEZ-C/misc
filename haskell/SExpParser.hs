@@ -19,8 +19,12 @@ sexp = intval <|> symbol <|> listParser <|> strval
 
 intval :: Parser SExp
 intval = do
-	s <- many1 digit
-	return $ IntVal $ read s
+		s <- many1 digit
+		return $ IntVal $ read s
+	<|> do
+		char '-'
+		s <- many1 digit
+		return $ IntVal $ negate $ read s
 
 symbol :: Parser SExp
 symbol = do
@@ -34,7 +38,7 @@ listParser :: Parser SExp
 listParser = do
 	char '('
 	many separator
-	ls <- sepWith sexp (many1 separator)
+	ls <- listed sexp (many1 separator)
 	d <- last
 	return $ foldr Cons d ls
 	where
@@ -81,12 +85,12 @@ unquoted = do
 		s <- sexp
 		return $ Cons (Symbol "unquote") $ Cons s Nil
 
-sepWith :: Parser a -> Parser b -> Parser [a]
-sepWith content separator = do
+listed :: Parser a -> Parser b -> Parser [a]
+listed content delimitor = do
 		e <- content
 		try (do
-			s <- separator
-			rest <- sepWith content separator
+			s <- delimitor
+			rest <- listed content delimitor
 			return $ e : rest
 		 ) <|> do
 			return $ e : []
