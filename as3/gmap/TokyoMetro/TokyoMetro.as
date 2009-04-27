@@ -4,9 +4,12 @@ import flash.events.*;
 import flash.geom.Point;
 import flash.display.*;
 import flash.text.*;
+import flash.utils.Timer;
 import com.google.maps.*;
 import com.google.maps.controls.*;
 import com.google.maps.interfaces.IMap;
+import com.google.maps.LatLngBounds;
+import com.google.maps.overlays.*;
 
 public class TokyoMetro extends Sprite {
 	private var map:Map;
@@ -14,8 +17,17 @@ public class TokyoMetro extends Sprite {
 	private var to:TextField;
 	private var button:CustomButton;
 	private var debug_text:TextField;
+	private var dijkstraAnim:DijkstraAnimation;
+	private var myTimer:Timer;
+	private var railStationsLine:Object;
+
+	// 連絡通路の距離（一定）
+	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
 
 	public function TokyoMetro() {
+		debug_text = create_static_text(440, 0, 200, 16, "");
+		stage.addChild(debug_text);
+
 		map = new Map();
 		map.version = "map_flex_1_3.swc";
 		map.key = "ABQIAAAAYPjOknrO2nVrwswpM6J3shSo_w4dtRuu9MOazvQzIrXefBNXZxQEBXRTuZieD-FSmmswkvaAHqatfw";
@@ -33,7 +45,7 @@ from.text = "練馬";
 		stage.addChild(from);
 		stage.addChild(create_static_text(210, 450, 40, 20, "目的地"));
 		to   = create_input_box(250, 450, 60, 20);
-to.text = "新宿";
+to.text = "品川";
 		stage.addChild(to);
 
 		//ボタンの生成
@@ -41,12 +53,50 @@ to.text = "新宿";
 		button.addEventListener(MouseEvent.MOUSE_UP, on_btn_pressed);
 		addChild(button);
 
-		debug_text = create_static_text(440, 0, 200, 16, "");
-		stage.addChild(debug_text);
+		init_data();
+	}
+
+	private function init_data():void {
+		var V:Object = {};
+		var E:Object = {};
+
+		// ノードの作成
+		for (var key:String in Data.RailStations) {
+			var station_id:String = Data.RailStations[key];
+			V[key] = Data.Stations[station_id];
+		}
+
+		// エッジの作成
+		E = make_graph_info(Data.Lines, Data.RailStations, Data.Stations);
+
+		// レール駅IDと線の対応付け
+		railStationsLine = {}
+		for (key in Data.Lines) {
+			var line:Object = Data.Lines[key];
+			var joins:Object = line.joins;
+			for (var i:int=0; i<joins.length; ++i) {
+				var join:Object = joins[i];
+				railStationsLine[join.rsi1] = line;
+				railStationsLine[join.rsi2] = line;
+			}
+		}
+
+		dijkstraAnim = new DijkstraAnimation(V, E);
+	}
+
+	private var bounds: LatLngBounds;
+
+	public static function expand_bounds(bounds: LatLngBounds, pos:LatLng):void {
+		bounds.union(new LatLngBounds(pos, pos));
 	}
 
 	private function on_btn_pressed(ev:MouseEvent):void {
 		map.closeInfoWindow();
+		map.clearOverlays();
+		if (myTimer) {
+			myTimer.stop();
+		}
+
 		var from_key:String = search_station(from.text);
 		if (from_key == "") {
 			map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: from.text, content: "出発駅が見つかりません"}));
@@ -55,89 +105,59 @@ to.text = "新宿";
 			if (to_key == "") {
 				map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: to.text, content: "目的地が見つかりません"}));
 			} else {
-				dijkstra(from_key, to_key);
+				dijkstraAnim.init(from_key, to_key);
+
+				var station:Object = Data.Stations[Data.RailStations[from_key]];
+				var station2:Object = Data.Stations[Data.RailStations[to_key]];
+				var pos:LatLng = new LatLng(station.lat, station.lng);
+				var pos2:LatLng = new LatLng(station2.lat, station2.lng);
+				bounds = new LatLngBounds();
+				expand_bounds(bounds, pos);
+				expand_bounds(bounds, pos2);
+				map.addOverlay(new Marker(pos));
+				map.addOverlay(new Marker(pos2));
+
+				var zoom:Number = map.getBoundsZoomLevel(bounds);
+				map.setCenter(bounds.getCenter(), zoom);
+
+				myTimer = new Timer(250, 0);
+				myTimer.addEventListener("timer", onTimer);
+				myTimer.start();
 			}
 		}
 	}
 
-	private function dijkstra(s:String, z:String):void {
-		function arclength(n1:String, n2:String):Number {
-			if (E.hasOwnProperty(n1) && E[n1].hasOwnProperty(n2)) {
-				return E[n1][n2].cost;
-			} else {
-				return Number.POSITIVE_INFINITY;
+	private function onTimer(eventArgs:TimerEvent):void {
+		if (!dijkstraAnim.is_end()) {
+			dijkstraAnim.step(function(st:String, pre:String, cost:Number):void {
+				var station:Object = Data.Stations[Data.RailStations[st]];
+				var station2:Object = Data.Stations[Data.RailStations[pre]];
+
+				var pos:LatLng = new LatLng(station.lat, station.lng);
+				expand_bounds(bounds, pos);
+				var zoom:Number = map.getBoundsZoomLevel(bounds);
+				map.setCenter(bounds.getCenter(), zoom);
+
+				var opt:PolylineOptions = new PolylineOptions({strokeStyle: {thickness:3, color: 0xFF0000, alpha:0.5}});
+				var polyline:Polyline = new Polyline([pos, new LatLng(station2.lat, station2.lng)], opt);
+				map.addOverlay(polyline);
+
+				var rail:Object = railStationsLine[st];
+				var rail_name:String = rail ? rail.name : "徒歩";
+				map.openInfoWindow(pos, new InfoWindowOptions({title: station.name + " (" + rail_name + ")", content: String(cost)}));
+			});
+
+			if (dijkstraAnim.is_end()) {
+				myTimer.stop();
 			}
-		}
-		// 配列中で関数呼び出しの結果が最小となる要素のインデクスを返す
-		function min_by_idx(array:Array, f:Function):int {
-			var res:int = -1;
-			var min:*;
-			for (var len:int=array.length, i:int=0; i<len; ++i) {
-				var x:* = array[i];
-				var t:* = f(x);
-				if (res < 0 || min > t) {
-					res = i;
-					min = t;
-				}
-			}
-			return res;
-		}
-
-trace("make graph");
-		var V:Object = Data.RailStations;	// ノード
-		var E:Object = make_graph_info(Data.Lines, Data.RailStations, Data.Stations);	// エッジ
-
-trace("init");
-		var distance:Object = new Object();
-		var predecessor:Object = new Object();
-		var S:Array = [s];
-		var left:Array = [];
-		distance[s] = 0;
-		for (var v:* in V) {
-			if (v != s) {
-				distance[v] = arclength(s, v);
-				predecessor[v] = s;
-				left.push(v);
-			}
-		}
-
-trace("start");
-var loopnum:int = 0;
-		for (; left.length > 0;) {
-loopnum += 1;
-			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return distance[v];});
-			var v_star:String = left[v_star_idx];
-			S.push(v_star);
-			if (v_star == z)	break;
-
-			left = left.filter(function(elem:*, index:int, arr:Array):Boolean {return elem != v_star;});
-			for (var len:int=left.length, i:int=0; i<len; ++i) {
-				v = left[i];
-				var dist:Number = arclength(v_star, v);
-				var d:Number = distance[v_star] + dist;
-				if (d < distance[v]) {
-					distance[v] = d;
-					predecessor[v] = v_star;
-				}
-			}
-		}
-
-trace("end");
-
-		if (v_star == z) {
-			var t:String = String(loopnum) + ":";
-			for (var p:String = z; (p = predecessor[p]) != s; ) {
-				t += Data.Stations[Data.RailStations[p]].name + ",";
-			}
-			trace(t);
 		}
 	}
 
 	// 路線情報からグラフを生成
 	private function make_graph_info(lines:*, rail_stations:*, stations:*):Object {
+trace("make_graph_info");
 		function add2graph(graph:*, rsi1:*, rsi2:*, v:*):void {
 			if (!graph.hasOwnProperty(rsi1))		graph[rsi1] = {};
-//			if (!graph[rsi1].hasOwnProperty(rsi2))	graph[rsi1][rsi2] = {};
 			graph[rsi1][rsi2] = v;
 		}
 		function add_edge(rail_stations:*, stations:*, rsi1:*, rsi2:*, line:*, cost:Number):void {
@@ -147,9 +167,9 @@ trace("end");
 		}
 
 		var graph:Object = {};
-	
+
 		// 路線の接続情報
-		for (var k:* in lines) {
+		for (var k:String in lines) {
 			var joins:* = lines[k].joins;
 			for (var i:int=0; i<joins.length; ++i) {
 				var join:Object = joins[i];
@@ -157,28 +177,48 @@ trace("end");
 			}
 		}
 
-/*
 		// 乗り継ぎ：同じ駅で別路線
+trace("1");
 		var same_stations:Object = {};
-		for (var k in rail_stations) {
-			var station = rail_stations[k];
+		for (k in rail_stations) {
+			var station:Object = rail_stations[k];
 			if (!same_stations[station]) {
 				same_stations[station] = [];
 			}
 			same_stations[station].push(k);
 		}
 		var line:* = undefined;
-		for (var k in same_stations) {
-			var s = same_stations[k];
-			s.combination(2).each(function(a){
-				var rsi1 = a[0];
-				var rsi2 = a[1];
-				var cost = RenrakuDist;
+trace("2");
+		for (k in same_stations) {
+			var s:Array = same_stations[k];
+			combination(s, 2).forEach(function(a:Array, index:int, arr:Array):void {
+				var rsi1:String = a[0];
+				var rsi2:String = a[1];
+				var cost:Number = RenrakuDist;
 				add_edge(rail_stations, stations, rsi1, rsi2, line, cost);
 			});
 		}
-*/
+trace("Ok");
 		return graph;
+	}
+
+	// 組み合わせ
+	public function combination(arr:Array, num:int):Array {
+trace("combi:" + arr.toString() + ":" + String(num));
+		if (num < 1 || num > arr.length) {
+			return [];
+		} else if (num == 1) {
+			return arr.map(function(elem:*, index:int, arr2:Array):Array {return [elem];});
+		} else {
+			var tmp:Array = ([]).concat(arr);
+trace("cloned");
+			var res:Array = [];
+			for (var i:int=0; i<arr.length - (num - 1); ++i) {
+				var va:Array = [tmp.shift()];
+				res = res.concat(combination(tmp, num-1).map( function(elem:*, index:int, arr2:Array):Array {return va.concat(elem);} ));
+			}
+			return res;
+		}
 	}
 
 	private function trace(str:String):void {
