@@ -11,3 +11,6 @@ $(PROJECT).swf:	$(SRCS)
 clean:
 	rm -f *.cache
 	rm -f $(PROJECT).swf
+
+conv:
+	cd conv; ruby conv.rb 

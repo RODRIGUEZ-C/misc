@@ -22,11 +22,13 @@ public class TokyoMetro extends Sprite {
 	private var railStationsLine:Object;
 
 	// 連絡通路の距離（一定）
-	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
+	private const RenrakuDist:Number = 0.1;		// 仮に一律100mとする
 
 	public function TokyoMetro() {
 		debug_text = create_static_text(440, 0, 200, 16, "");
 		stage.addChild(debug_text);
+
+		Data.init();
 
 		map = new Map();
 		map.version = "map_flex_1_3.swc";
@@ -36,16 +38,18 @@ public class TokyoMetro extends Sprite {
 			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
 			map.addControl(new ZoomControl());
+//			map.setDoubleClickMode(MapAction.ACTION_PAN_ZOOM_IN);
+			map.enableScrollWheelZoom();
 		});
 		addChild(map);
 
 		stage.addChild(create_static_text(100, 450, 40, 20, "出発駅"));
 		from = create_input_box(140, 450, 60, 20);
-from.text = "練馬";
+from.text = "浅草";
 		stage.addChild(from);
 		stage.addChild(create_static_text(210, 450, 40, 20, "目的地"));
 		to   = create_input_box(250, 450, 60, 20);
-to.text = "品川";
+to.text = "中野坂上";
 		stage.addChild(to);
 
 		//ボタンの生成
@@ -92,7 +96,11 @@ to.text = "品川";
 
 	private function on_btn_pressed(ev:MouseEvent):void {
 		map.closeInfoWindow();
-		map.clearOverlays();
+		try {
+			map.clearOverlays();
+		} catch (e:*) {		// ??? クリアはできるけど進まなくなる？
+			trace("error:" + String(e));
+		}
 		if (myTimer) {
 			myTimer.stop();
 		}
@@ -120,7 +128,7 @@ to.text = "品川";
 				var zoom:Number = map.getBoundsZoomLevel(bounds);
 				map.setCenter(bounds.getCenter(), zoom);
 
-				myTimer = new Timer(250, 0);
+				myTimer = new Timer(1, 0);
 				myTimer.addEventListener("timer", onTimer);
 				myTimer.start();
 			}
@@ -138,9 +146,11 @@ to.text = "品川";
 				var zoom:Number = map.getBoundsZoomLevel(bounds);
 				map.setCenter(bounds.getCenter(), zoom);
 
+/*
 				var opt:PolylineOptions = new PolylineOptions({strokeStyle: {thickness:3, color: 0xFF0000, alpha:0.5}});
 				var polyline:Polyline = new Polyline([pos, new LatLng(station2.lat, station2.lng)], opt);
 				map.addOverlay(polyline);
+*/
 
 				var rail:Object = railStationsLine[st];
 				var rail_name:String = rail ? rail.name : "徒歩";
@@ -155,7 +165,6 @@ to.text = "品川";
 
 	// 路線情報からグラフを生成
 	private function make_graph_info(lines:*, rail_stations:*, stations:*):Object {
-trace("make_graph_info");
 		function add2graph(graph:*, rsi1:*, rsi2:*, v:*):void {
 			if (!graph.hasOwnProperty(rsi1))		graph[rsi1] = {};
 			graph[rsi1][rsi2] = v;
@@ -178,7 +187,6 @@ trace("make_graph_info");
 		}
 
 		// 乗り継ぎ：同じ駅で別路線
-trace("1");
 		var same_stations:Object = {};
 		for (k in rail_stations) {
 			var station:Object = rail_stations[k];
@@ -188,7 +196,6 @@ trace("1");
 			same_stations[station].push(k);
 		}
 		var line:* = undefined;
-trace("2");
 		for (k in same_stations) {
 			var s:Array = same_stations[k];
 			combination(s, 2).forEach(function(a:Array, index:int, arr:Array):void {
@@ -198,20 +205,17 @@ trace("2");
 				add_edge(rail_stations, stations, rsi1, rsi2, line, cost);
 			});
 		}
-trace("Ok");
 		return graph;
 	}
 
 	// 組み合わせ
 	public function combination(arr:Array, num:int):Array {
-trace("combi:" + arr.toString() + ":" + String(num));
 		if (num < 1 || num > arr.length) {
 			return [];
 		} else if (num == 1) {
 			return arr.map(function(elem:*, index:int, arr2:Array):Array {return [elem];});
 		} else {
 			var tmp:Array = ([]).concat(arr);
-trace("cloned");
 			var res:Array = [];
 			for (var i:int=0; i<arr.length - (num - 1); ++i) {
 				var va:Array = [tmp.shift()];

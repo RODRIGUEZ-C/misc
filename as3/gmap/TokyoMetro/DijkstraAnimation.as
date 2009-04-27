@@ -6,17 +6,18 @@ import flash.display.*;
 import flash.text.*;
 
 public class DijkstraAnimation {
-	private var V:Object;
-	private var E:Object;
+	private var V:Object;		// ノード
+	private var E:Object;		// エッジ
 
-	private var b_end:Boolean;
-	private var s:String;
-	private var z:String;
+	private var b_end:Boolean;	// 終了した？
+	private var s:String;		// 開始駅
+	private var z:String;		// 終着駅
 
-	private var distance:Object;
-	private var predecessor:Object;
-	private var S:Array;
-	private var left:Array;
+	private var distance:Object;		// 距離（移動コスト）
+	private var predecessor:Object;		// エッジ
+	private var S:Array;				// 確定したノード
+	private var left:Array;				// 未確定のノード
+	private var left_flag:Object;		// 未確定のノード
 
 	public function DijkstraAnimation(V_:Object, E_:Object) {
 		V = V_;
@@ -35,19 +36,22 @@ public class DijkstraAnimation {
 		predecessor = new Object();
 		S = [s];
 		left = [];
+		left_flag = {}
 		distance[s] = 0;
+		left_flag[s] = false;
 		for (var v:* in V) {
 			if (v != s) {
 				distance[v] = arclength(s, v);
 				predecessor[v] = s;
 				left.push(v);
+				left_flag[v] = true;
 			}
 		}
 	}
 
 	public function step(f:Function):void {
 		if (!b_end) {
-			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return distance[v];});
+			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
 			var v_star:String = left[v_star_idx];
 			f(v_star, predecessor[v_star], distance[v_star]);
 			S.push(v_star);
@@ -56,14 +60,17 @@ public class DijkstraAnimation {
 				return;
 			}
 
-			left = left.filter(function(elem:*, index:int, arr:Array):Boolean {return elem != v_star;});
-			for (var len:int=left.length, i:int=0; i<len; ++i) {
-				var v:String = left[i];
-				var dist:Number = arclength(v_star, v);
-				var d:Number = distance[v_star] + dist;
-				if (d < distance[v]) {
-					distance[v] = d;
-					predecessor[v] = v_star;
+			left[v_star_idx] = "";
+			left_flag[v] = false;
+			for (var key:String in E[v_star]) {
+				var v:String = key;
+				if (left_flag[v]) {
+					var dist:Number = arclength(v_star, v);
+					var d:Number = distance[v_star] + dist;
+					if (d < distance[v]) {
+						distance[v] = d;
+						predecessor[v] = v_star;
+					}
 				}
 			}
 		}
