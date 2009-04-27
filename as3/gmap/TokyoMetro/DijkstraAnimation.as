@@ -6,15 +6,15 @@ import flash.display.*;
 import flash.text.*;
 
 public class DijkstraAnimation {
-	private var V:Object;		// ノード
-	private var E:Object;		// エッジ
+	public var V:Object;				// ノード
+	public var E:Object;				// エッジ
 
-	private var b_end:Boolean;	// 終了した？
-	private var s:String;		// 開始駅
-	private var z:String;		// 終着駅
+	private var b_end:Boolean;			// 終了した？
+	public var s:String;				// 開始駅
+	public var z:String;				// 終着駅
 
-	private var distance:Object;		// 距離（移動コスト）
-	private var predecessor:Object;		// エッジ
+	public var distance:Object;			// 距離（移動コスト）
+	public var predecessor:Object;		// エッジ
 	private var S:Array;				// 確定したノード
 	private var left:Array;				// 未確定のノード
 	private var left_flag:Object;		// 未確定のノード
@@ -26,6 +26,13 @@ public class DijkstraAnimation {
 	}
 
 	public function is_end():Boolean { return b_end; }
+
+	public function execute(from:String, to:String, f:Function):void {
+		init(from, to);
+		while (!b_end) {
+			step(undefined);
+		}
+	}
 
 	public function init(from:String, to:String):void {
 		b_end = false;
@@ -53,7 +60,7 @@ public class DijkstraAnimation {
 		if (!b_end) {
 			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
 			var v_star:String = left[v_star_idx];
-			f(v_star, predecessor[v_star], distance[v_star]);
+			if (f != undefined) f(v_star, predecessor[v_star], distance[v_star]);
 			S.push(v_star);
 			if (v_star == z) {
 				b_end = true;

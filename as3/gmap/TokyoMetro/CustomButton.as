@@ -1,3 +1,4 @@
+// http://www.saturn.dti.ne.jp/~npaka/flash/as30/SimpleButton/index.html
 package {
 	import flash.display.*;
 	import flash.system.*;

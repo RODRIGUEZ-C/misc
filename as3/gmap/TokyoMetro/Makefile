@@ -12,5 +12,7 @@ clean:
 	rm -f *.cache
 	rm -f $(PROJECT).swf
 
-conv:
-	cd conv; ruby conv.rb 
+conv:	Data.as
+
+Data.as:	tool/m_station.csv tool/station_join.csv
+	cd tool && ruby conv.rb m_station.csv station_join.csv >../Data.as

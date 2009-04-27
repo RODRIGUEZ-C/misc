@@ -4,7 +4,7 @@ import flash.events.*;
 import flash.geom.Point;
 import flash.display.*;
 import flash.text.*;
-import flash.utils.Timer;
+import flash.utils.*;
 import com.google.maps.*;
 import com.google.maps.controls.*;
 import com.google.maps.interfaces.IMap;
@@ -22,7 +22,7 @@ public class TokyoMetro extends Sprite {
 	private var railStationsLine:Object;
 
 	// 連絡通路の距離（一定）
-	private const RenrakuDist:Number = 0.1;		// 仮に一律100mとする
+	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
 
 	public function TokyoMetro() {
 		debug_text = create_static_text(440, 0, 200, 16, "");
@@ -43,19 +43,25 @@ public class TokyoMetro extends Sprite {
 		});
 		addChild(map);
 
-		stage.addChild(create_static_text(100, 450, 40, 20, "出発駅"));
-		from = create_input_box(140, 450, 60, 20);
-from.text = "浅草";
+		var y:int = 440;
+
+		stage.addChild(create_static_text(100, y, 40, 20, "出発駅"));
+		from = create_input_box(140, y, 60, 20);
+from.text = "中野";
 		stage.addChild(from);
-		stage.addChild(create_static_text(210, 450, 40, 20, "目的地"));
-		to   = create_input_box(250, 450, 60, 20);
-to.text = "中野坂上";
+		stage.addChild(create_static_text(210, y, 40, 20, "目的地"));
+		to   = create_input_box(250, y, 60, 20);
+to.text = "新宿";
 		stage.addChild(to);
 
 		//ボタンの生成
-		button = new CustomButton(320, 450, "検索");
+		button = new CustomButton(320, y, "検索");
 		button.addEventListener(MouseEvent.MOUSE_UP, on_btn_pressed);
 		addChild(button);
+
+		// チェックボックス
+//		var cb:CreateCheckBox = new CreateCheckBox(["ノーウェイト"], 400, 450, 20);
+//		addChild(cb);
 
 		init_data();
 	}
@@ -99,7 +105,7 @@ to.text = "中野坂上";
 		try {
 			map.clearOverlays();
 		} catch (e:*) {		// ??? クリアはできるけど進まなくなる？
-			trace("error:" + String(e));
+//			trace("error:" + String(e));
 		}
 		if (myTimer) {
 			myTimer.stop();
@@ -113,8 +119,6 @@ to.text = "中野坂上";
 			if (to_key == "") {
 				map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: to.text, content: "目的地が見つかりません"}));
 			} else {
-				dijkstraAnim.init(from_key, to_key);
-
 				var station:Object = Data.Stations[Data.RailStations[from_key]];
 				var station2:Object = Data.Stations[Data.RailStations[to_key]];
 				var pos:LatLng = new LatLng(station.lat, station.lng);
@@ -128,14 +132,31 @@ to.text = "中野坂上";
 				var zoom:Number = map.getBoundsZoomLevel(bounds);
 				map.setCenter(bounds.getCenter(), zoom);
 
-				myTimer = new Timer(1, 0);
-				myTimer.addEventListener("timer", onTimer);
-				myTimer.start();
+//				if (true) {
+					dijkstraAnim.init(from_key, to_key);
+
+					myTimer = new Timer(1, 0);
+					myTimer.addEventListener("timer", on_timer);
+					myTimer.start();
+/*
+				} else {
+					var t0:int = getTimer();
+					trace("Exec!");
+					dijkstraAnim.execute(from_key, to_key, function ():void {
+						
+					});
+					var t1:int = getTimer();
+					var d:int = t1 - t0;
+					trace(String(d / 1000.0) + " s");
+
+					on_calculated();
+				}
+*/
 			}
 		}
 	}
 
-	private function onTimer(eventArgs:TimerEvent):void {
+	private function on_timer(eventArgs:TimerEvent):void {
 		if (!dijkstraAnim.is_end()) {
 			dijkstraAnim.step(function(st:String, pre:String, cost:Number):void {
 				var station:Object = Data.Stations[Data.RailStations[st]];
@@ -159,8 +180,40 @@ to.text = "中野坂上";
 
 			if (dijkstraAnim.is_end()) {
 				myTimer.stop();
+				on_calculated();
 			}
 		}
+	}
+
+	private function on_calculated():void {
+		var from_key:String = dijkstraAnim.s;
+		var to_key:String = dijkstraAnim.z;
+
+		bounds = new LatLngBounds();
+
+		// 結果を表示
+		var predecessor:Object = dijkstraAnim.predecessor;
+		var text:String = "";
+		var lines:Array = [];
+		var points:Array = [];
+		for (var p:String = to_key; ; p = predecessor[p]) {
+			lines.push(p);
+			var station:Object = Data.Stations[Data.RailStations[p]];
+			points.push(new LatLng(station.lat, station.lng));
+
+			var pos:LatLng = new LatLng(station.lat, station.lng);
+			expand_bounds(bounds, pos);
+
+var edge:Object = dijkstraAnim.E[p][predecessor[p]];
+var line_name:String = (edge && edge.line) ? edge.line.name : "徒歩";
+//text += station.name + "(" + line_name + "),";
+			if (p == from_key)	break;
+		}
+		map.addOverlay(new Polyline(points, new PolylineOptions({strokeStyle: {thickness:3, color:0xff0000}})));
+
+		var zoom:Number = map.getBoundsZoomLevel(bounds);
+		map.setCenter(bounds.getCenter(), zoom);
+//map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: text}));
 	}
 
 	// 路線情報からグラフを生成
