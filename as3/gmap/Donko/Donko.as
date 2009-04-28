@@ -43,7 +43,7 @@ public class Donko extends Sprite {
 		map.key = "ABQIAAAAYPjOknrO2nVrwswpM6J3shSo_w4dtRuu9MOazvQzIrXefBNXZxQEBXRTuZieD-FSmmswkvaAHqatfw";
 		map.setSize(new Point(stage.stageWidth, stage.stageHeight));
 		map.addEventListener(MapEvent.MAP_READY, function (event:*):void {
-			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
+			map.setCenter(new LatLng(36.5626,136.362305), 5, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
 			map.addControl(new ZoomControl());
 			map.enableScrollWheelZoom();
@@ -63,12 +63,12 @@ public class Donko extends Sprite {
 		static_text[0] = create_static_text(100, y, 40, 20, "出発駅");
 		stage.addChild(static_text[0]);
 		from = create_input_box(140, y, 60, 20);
-from.text = "中野";
+//from.text = "中野";
 		stage.addChild(from);
 		static_text[1] = create_static_text(210, y, 40, 20, "目的地");
 		stage.addChild(static_text[1]);
 		to   = create_input_box(250, y, 60, 20);
-to.text = "新宿";
+//to.text = "新宿";
 		stage.addChild(to);
 
 		from.addEventListener(KeyboardEvent.KEY_DOWN, on_keydown);
