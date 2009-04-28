@@ -11,7 +11,7 @@ import com.google.maps.interfaces.IMap;
 import com.google.maps.LatLngBounds;
 import com.google.maps.overlays.*;
 
-public class TokyoMetro extends Sprite {
+public class Donko extends Sprite {
 	private var map:Map;
 	private var from:TextField;
 	private var to:TextField;
@@ -25,7 +25,7 @@ public class TokyoMetro extends Sprite {
 	// 連絡通路の距離（一定）
 	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
 
-	public function TokyoMetro() {
+	public function Donko() {
 		debug_text = create_static_text(0, 0, 200, 16, "");
 		stage.addChild(debug_text);
 

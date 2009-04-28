@@ -1,5 +1,5 @@
 
-PROJECT=TokyoMetro
+PROJECT=Donko
 
 SRCS =	$(wildcard *.as)
 
