@@ -5,6 +5,7 @@ import flash.geom.Point;
 import flash.display.*;
 import flash.text.*;
 import flash.utils.*;
+import flash.ui.Keyboard;
 import com.google.maps.*;
 import com.google.maps.controls.*;
 import com.google.maps.interfaces.IMap;
@@ -13,6 +14,7 @@ import com.google.maps.overlays.*;
 
 public class Donko extends Sprite {
 	private var map:Map;
+	private var static_text:Array;
 	private var from:TextField;
 	private var to:TextField;
 	private var button:CustomButton;
@@ -31,12 +33,15 @@ public class Donko extends Sprite {
 		debug_text = create_static_text(0, 0, 200, 16, "");
 		stage.addChild(debug_text);
 
+		stage.scaleMode = StageScaleMode.NO_SCALE;
+		stage.align = StageAlign.TOP_LEFT;
+
 		Data.init();
 
 		map = new Map();
 		map.version = "map_flex_1_3.swc";
 		map.key = "ABQIAAAAYPjOknrO2nVrwswpM6J3shSo_w4dtRuu9MOazvQzIrXefBNXZxQEBXRTuZieD-FSmmswkvaAHqatfw";
-		map.setSize(new Point(640, 480));
+		map.setSize(new Point(stage.stageWidth, stage.stageHeight));
 		map.addEventListener(MapEvent.MAP_READY, function (event:*):void {
 			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
@@ -49,29 +54,50 @@ public class Donko extends Sprite {
 		map.addEventListener(MapMouseEvent.DRAG_START, function (event:MapMouseEvent):void {
 			auto_view = false;
 		});
+		stage.addEventListener(Event.RESIZE, on_resize);
 		addChild(map);
 
 		var y:int = stage.stageHeight - 40;
 
-		stage.addChild(create_static_text(100, y, 40, 20, "出発駅"));
+		static_text = [];
+		static_text[0] = create_static_text(100, y, 40, 20, "出発駅");
+		stage.addChild(static_text[0]);
 		from = create_input_box(140, y, 60, 20);
 from.text = "中野";
 		stage.addChild(from);
-		stage.addChild(create_static_text(210, y, 40, 20, "目的地"));
+		static_text[1] = create_static_text(210, y, 40, 20, "目的地");
+		stage.addChild(static_text[1]);
 		to   = create_input_box(250, y, 60, 20);
 to.text = "新宿";
 		stage.addChild(to);
 
+		from.addEventListener(KeyboardEvent.KEY_DOWN, on_keydown);
+		to.addEventListener(KeyboardEvent.KEY_DOWN, on_keydown);
+
 		//ボタンの生成
 		button = new CustomButton(320, y, "検索");
-		button.addEventListener(MouseEvent.MOUSE_UP, on_btn_pressed);
+		button.addEventListener(MouseEvent.MOUSE_UP, function (ev:MouseEvent):void { on_btn_pressed(); });
 		addChild(button);
+
+		button.addEventListener(KeyboardEvent.KEY_DOWN, on_keydown);
 
 		// チェックボックス
 //		var cb:CreateCheckBox = new CreateCheckBox(["ノーウェイト"], 400, 450, 20);
 //		addChild(cb);
 
 		init_data();
+	}
+
+	private function on_resize(event:Event):void {
+		map.setSize(new Point(stage.stageWidth, stage.stageHeight));
+		var y:int = stage.stageHeight - 40;
+		from.y = to.y = button.y = static_text[0].y = static_text[1].y = y;
+	}
+
+	private function on_keydown(event:KeyboardEvent):void {
+		if (event.keyCode == Keyboard.ENTER) {
+			on_btn_pressed();
+		}
 	}
 
 	private function init_data():void {
@@ -122,7 +148,7 @@ to.text = "新宿";
 		bounds.union(new LatLngBounds(pos, pos));
 	}
 
-	private function on_btn_pressed(ev:MouseEvent):void {
+	private function on_btn_pressed():void {
 		edgelines = {};
 		try {
 			map.closeInfoWindow();
@@ -173,7 +199,7 @@ to.text = "新宿";
 					var d:int = t1 - t0;
 					trace(String(d / 1000.0) + " s");
 
-					on_calculated();
+					on_finished();
 				}
 */
 				auto_view = true;
@@ -235,12 +261,12 @@ to.text = "新宿";
 
 			if (dijkstraAnim.is_end()) {
 				myTimer.stop();
-				on_calculated();
+				on_finished();
 			}
 		}
 	}
 
-	private function on_calculated():void {
+	private function on_finished():void {
 		edgelines = {};
 		try {
 			map.closeInfoWindow();
@@ -281,7 +307,7 @@ to.text = "新宿";
 				}
 			}
 			if (p == to_key || p == from_key || !line) {
-				map.addOverlay(new Marker(pos, new MarkerOptions({tooltip: station.name})));
+				map.addOverlay(new Marker(pos, new MarkerOptions({tooltip: station.name + "(" + way + ")"})));
 				if (p != to_key) {
 					points_array.unshift(points);
 					points = [pos];
