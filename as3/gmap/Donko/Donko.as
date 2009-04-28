@@ -21,6 +21,8 @@ public class Donko extends Sprite {
 	private var myTimer:Timer;
 	private var railStationsLine:Object;
 	private var nsearch:int;
+	private var auto_view:Boolean;
+	private var edgelines:Object;
 
 	// 連絡通路の距離（一定）
 	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
@@ -39,8 +41,13 @@ public class Donko extends Sprite {
 			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
 			map.addControl(new ZoomControl());
-//			map.setDoubleClickMode(MapAction.ACTION_PAN_ZOOM_IN);
 			map.enableScrollWheelZoom();
+		});
+		map.addEventListener(MapMouseEvent.DOUBLE_CLICK, function (event:MapMouseEvent):void {
+			map.setCenter(event.latLng, map.getZoom() + 1);
+		});
+		map.addEventListener(MapMouseEvent.DRAG_START, function (event:MapMouseEvent):void {
+			auto_view = false;
 		});
 		addChild(map);
 
@@ -116,6 +123,7 @@ to.text = "新宿";
 	}
 
 	private function on_btn_pressed(ev:MouseEvent):void {
+		edgelines = {};
 		map.closeInfoWindow();
 		try {
 			map.clearOverlays();
@@ -168,26 +176,55 @@ to.text = "新宿";
 					on_calculated();
 				}
 */
+				auto_view = true;
 			}
 		}
 	}
 
+	private function remove_edge_line(station1id:String, station2id:String):void {
+		var station1:Object = Data.Stations[Data.RailStations[station1id]];
+		var station2:Object = Data.Stations[Data.RailStations[station2id]];
+
+		var key:String = (station1id < station2id) ? station1id + "," + station2id : station2id + "," + station1id;
+		if (edgelines.hasOwnProperty(key)) {
+			map.removeOverlay(edgelines[key]);
+			edgelines[key] = undefined;
+		}
+	}
+
+	private function update_edge_line(station1id:String, station2id:String, color:int, alpha:Number):void {
+		var station1:Object = Data.Stations[Data.RailStations[station1id]];
+		var station2:Object = Data.Stations[Data.RailStations[station2id]];
+
+		var key:String = (station1id < station2id) ? station1id + "," + station2id : station2id + "," + station1id;
+		if (edgelines.hasOwnProperty(key)) {
+			map.removeOverlay(edgelines[key]);
+		}
+
+		var opt:PolylineOptions = new PolylineOptions({strokeStyle: {thickness:3, color: color, alpha:alpha}});
+		var polyline:Polyline = new Polyline([new LatLng(station1.lat, station1.lng), new LatLng(station2.lat, station2.lng)], opt);
+		map.addOverlay(polyline);
+		edgelines[key] = polyline;
+	}
+
 	private function on_timer(eventArgs:TimerEvent):void {
 		if (!dijkstraAnim.is_end()) {
-			dijkstraAnim.step(function(st:String, pre:String, cost:Number):void {
+			dijkstraAnim.step(function(st:String, pre:String, cost:Number, updates:Array):void {
 				var station:Object = Data.Stations[Data.RailStations[st]];
 				var station2:Object = Data.Stations[Data.RailStations[pre]];
 
 				var pos:LatLng = new LatLng(station.lat, station.lng);
 				expand_bounds(bounds, pos);
-				var zoom:Number = map.getBoundsZoomLevel(bounds);
-				map.setCenter(bounds.getCenter(), zoom);
+				if (auto_view) {
+					var zoom:Number = map.getBoundsZoomLevel(bounds);
+					map.setCenter(bounds.getCenter(), zoom);
+				}
 
-/*
-				var opt:PolylineOptions = new PolylineOptions({strokeStyle: {thickness:3, color: 0xFF0000, alpha:0.5}});
-				var polyline:Polyline = new Polyline([pos, new LatLng(station2.lat, station2.lng)], opt);
-				map.addOverlay(polyline);
-*/
+				update_edge_line(st, pre, 0xff0000, 1.0);
+				updates.forEach(function(elem:Array, index:int, arr:Array):void {
+					remove_edge_line(elem[0], elem[1]);
+					update_edge_line(st, elem[0], 0x00ff00, 0.5);
+				});
 
 				var rail:Object = railStationsLine[st];
 				var rail_name:String = rail ? rail.name : "徒歩";
@@ -204,34 +241,66 @@ to.text = "新宿";
 	}
 
 	private function on_calculated():void {
+		edgelines = {};
+		try {
+			map.clearOverlays();
+		} catch (e:*) {		// ??? クリアはできるけど進まなくなる？
+//			trace("error:" + String(e));
+		}
+
 		var from_key:String = dijkstraAnim.s;
 		var to_key:String = dijkstraAnim.z;
 
 		bounds = new LatLngBounds();
+
+		var path_stations:Array = [];
 
 		// 結果を表示
 		var predecessor:Object = dijkstraAnim.predecessor;
 		var text:String = "";
 		var lines:Array = [];
 		var points:Array = [];
+		var points_array:Array = [];
+		var prev_station_id:String;
+		var way:String = "";
 		for (var p:String = to_key; ; p = predecessor[p]) {
 			lines.push(p);
 			var station:Object = Data.Stations[Data.RailStations[p]];
-			points.push(new LatLng(station.lat, station.lng));
-
 			var pos:LatLng = new LatLng(station.lat, station.lng);
+			path_stations.unshift(station);
+			points.unshift(pos);
+
 			expand_bounds(bounds, pos);
 
-var edge:Object = dijkstraAnim.E[p][predecessor[p]];
-var line_name:String = (edge && edge.line) ? edge.line.name : "徒歩";
-//text += station.name + "(" + line_name + "),";
+			var line:Object = "";
+			if (p != to_key) {
+				line = dijkstraAnim.E[prev_station_id][p].line;
+				if (line) {
+					way = line.name;
+				}
+			}
+			if (p == to_key || p == from_key || !line) {
+				map.addOverlay(new Marker(pos, new MarkerOptions({tooltip: station.name})));
+				if (p != to_key) {
+					points_array.unshift(points);
+					points = [pos];
+				}
+			}
+
 			if (p == from_key)	break;
+
+			prev_station_id = p;
 		}
-		map.addOverlay(new Polyline(points, new PolylineOptions({strokeStyle: {thickness:3, color:0xff0000}})));
+
+		const colors:Array = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff];
+		for (var iline:int = 0; iline < points_array.length; ++iline) {
+			points = points_array[iline];
+			var color:int = colors[iline % colors.length];
+			map.addOverlay(new Polyline(points, new PolylineOptions({strokeStyle: {thickness:3, color:color}})));
+		}
 
 		var zoom:Number = map.getBoundsZoomLevel(bounds);
 		map.setCenter(bounds.getCenter(), zoom);
-//map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: text}));
 
 		trace("#search:" + String(nsearch));
 	}

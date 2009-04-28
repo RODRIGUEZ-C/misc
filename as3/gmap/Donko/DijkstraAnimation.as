@@ -29,7 +29,7 @@ public class DijkstraAnimation {
 	public function is_end():Boolean { return b_end; }
 
 	public function execute(from:String, to:String, f:Function):void {
-		function nullcb(st:String, pre:String, cost:Number):void {}
+		function nullcb(st:String, pre:String, cost:Number, updates:Array):void {}
 
 		init(from, to);
 		while (!b_end) {
@@ -65,14 +65,15 @@ public class DijkstraAnimation {
 		if (!b_end) {
 			var v_star_idx:int = min_by_idx(left, nleft, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
 			var v_star:String = left[v_star_idx];
-			f(v_star, predecessor[v_star], distance[v_star]);
 			S.push(v_star);
 			if (v_star == z) {
+				f(v_star, predecessor[v_star], distance[v_star], []);
 				b_end = true;
 				return;
 			}
 
 			// v* を未確定の要素から取り除く
+			var updates:Array = [];
 			--nleft;
 			left[v_star_idx] = left[nleft];
 			left[nleft] = v_star;
@@ -83,11 +84,14 @@ public class DijkstraAnimation {
 					var dist:Number = arclength(v_star, v);
 					var d:Number = distance[v_star] + dist;
 					if (d < distance[v]) {
+						updates.push([v, predecessor[v]]);
 						distance[v] = d;
 						predecessor[v] = v_star;
 					}
 				}
 			}
+
+			f(v_star, predecessor[v_star], distance[v_star], updates);
 		}
 	}
 
