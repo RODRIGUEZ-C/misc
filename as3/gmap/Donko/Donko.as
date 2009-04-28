@@ -124,8 +124,8 @@ to.text = "新宿";
 
 	private function on_btn_pressed(ev:MouseEvent):void {
 		edgelines = {};
-		map.closeInfoWindow();
 		try {
+			map.closeInfoWindow();
 			map.clearOverlays();
 		} catch (e:*) {		// ??? クリアはできるけど進まなくなる？
 //			trace("error:" + String(e));
@@ -243,6 +243,7 @@ to.text = "新宿";
 	private function on_calculated():void {
 		edgelines = {};
 		try {
+			map.closeInfoWindow();
 			map.clearOverlays();
 		} catch (e:*) {		// ??? クリアはできるけど進まなくなる？
 //			trace("error:" + String(e));
