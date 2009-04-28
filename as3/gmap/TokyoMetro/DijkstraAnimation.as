@@ -17,6 +17,7 @@ public class DijkstraAnimation {
 	public var predecessor:Object;		// エッジ
 	private var S:Array;				// 確定したノード
 	private var left:Array;				// 未確定のノード
+	private var nleft:int;				// 未確定のノードの数
 	private var left_flag:Object;		// 未確定のノード
 
 	public function DijkstraAnimation(V_:Object, E_:Object) {
@@ -45,6 +46,7 @@ public class DijkstraAnimation {
 		predecessor = new Object();
 		S = [s];
 		left = [];
+		nleft = 0;
 		left_flag = {}
 		distance[s] = 0;
 		left_flag[s] = false;
@@ -53,6 +55,7 @@ public class DijkstraAnimation {
 				distance[v] = arclength(s, v);
 				predecessor[v] = s;
 				left.push(v);
+				++nleft;
 				left_flag[v] = true;
 			}
 		}
@@ -60,7 +63,7 @@ public class DijkstraAnimation {
 
 	public function step(f:Function):void {
 		if (!b_end) {
-			var v_star_idx:int = min_by_idx(left, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
+			var v_star_idx:int = min_by_idx(left, nleft, function(v:String):Number {return v != "" ? distance[v] : Number.POSITIVE_INFINITY;});
 			var v_star:String = left[v_star_idx];
 			f(v_star, predecessor[v_star], distance[v_star]);
 			S.push(v_star);
@@ -69,8 +72,11 @@ public class DijkstraAnimation {
 				return;
 			}
 
-			left[v_star_idx] = "";
-			left_flag[v] = false;
+			// v* を未確定の要素から取り除く
+			--nleft;
+			left[v_star_idx] = left[nleft];
+			left[nleft] = v_star;
+			left_flag[v_star] = false;
 			for (var key:String in E[v_star]) {
 				var v:String = key;
 				if (left_flag[v]) {
@@ -102,12 +108,12 @@ public class DijkstraAnimation {
 	}
 
 	// 配列中で関数呼び出しの結果が最小となる要素のインデクスを返す
-	private static function min_by_idx(array:Array, f:Function):int {
+	private static function min_by_idx(array:Array, n:int, f:Function):int {
 		var res:int = -1;
-		var min:*;
-		for (var len:int=array.length, i:int=0; i<len; ++i) {
+		var min:Number;
+		for (var i:int=0; i<n; ++i) {
 			var x:* = array[i];
-			var t:* = f(x);
+			var t:Number = f(x);
 			if (res < 0 || min > t) {
 				res = i;
 				min = t;

@@ -20,12 +20,13 @@ public class TokyoMetro extends Sprite {
 	private var dijkstraAnim:DijkstraAnimation;
 	private var myTimer:Timer;
 	private var railStationsLine:Object;
+	private var nsearch:int;
 
 	// 連絡通路の距離（一定）
 	private const RenrakuDist:Number = 0.5;		// 仮に一律500mとする
 
 	public function TokyoMetro() {
-		debug_text = create_static_text(stage.stageWidth-200, 0, 200, 16, "");
+		debug_text = create_static_text(0, 0, 200, 16, "");
 		stage.addChild(debug_text);
 
 		Data.init();
@@ -33,7 +34,7 @@ public class TokyoMetro extends Sprite {
 		map = new Map();
 		map.version = "map_flex_1_3.swc";
 		map.key = "ABQIAAAAYPjOknrO2nVrwswpM6J3shSo_w4dtRuu9MOazvQzIrXefBNXZxQEBXRTuZieD-FSmmswkvaAHqatfw";
-		map.setSize(new Point(800, 600));
+		map.setSize(new Point(640, 480));
 		map.addEventListener(MapEvent.MAP_READY, function (event:*):void {
 			map.setCenter(new LatLng(35.68295607559028, 139.71725463867188), 12, MapType.NORMAL_MAP_TYPE);
 			map.addControl(new MapTypeControl());
@@ -43,7 +44,7 @@ public class TokyoMetro extends Sprite {
 		});
 		addChild(map);
 
-		var y:int = 600 - 40;
+		var y:int = stage.stageHeight - 40;
 
 		stage.addChild(create_static_text(100, y, 40, 20, "出発駅"));
 		from = create_input_box(140, y, 60, 20);
@@ -92,6 +93,20 @@ to.text = "新宿";
 		}
 
 		dijkstraAnim = new DijkstraAnimation(V, E);
+
+
+		// デバッグ用：ノードとエッジの数
+		var nedge:int = 0;
+		for (var k1:String in E) {
+			for (var k2:String in E[k1]) {
+				nedge += 1;
+			}
+		}
+		var nnode:int = 0;
+		for (key in V) {
+			nnode += 1;
+		}
+		trace("#node:" + String(nnode) + ", #edge:" + String(nedge));
 	}
 
 	private var bounds: LatLngBounds;
@@ -132,6 +147,7 @@ to.text = "新宿";
 				var zoom:Number = map.getBoundsZoomLevel(bounds);
 				map.setCenter(bounds.getCenter(), zoom);
 
+				nsearch = 0;
 //				if (true) {
 					dijkstraAnim.init(from_key, to_key);
 
@@ -176,6 +192,8 @@ to.text = "新宿";
 				var rail:Object = railStationsLine[st];
 				var rail_name:String = rail ? rail.name : "徒歩";
 				map.openInfoWindow(pos, new InfoWindowOptions({title: station.name + " (" + rail_name + ")", content: String(cost)}));
+
+				++nsearch;
 			});
 
 			if (dijkstraAnim.is_end()) {
@@ -214,6 +232,8 @@ var line_name:String = (edge && edge.line) ? edge.line.name : "徒歩";
 		var zoom:Number = map.getBoundsZoomLevel(bounds);
 		map.setCenter(bounds.getCenter(), zoom);
 //map.openInfoWindow(map.getCenter(), new InfoWindowOptions({title: text}));
+
+		trace("#search:" + String(nsearch));
 	}
 
 	// 路線情報からグラフを生成
@@ -262,7 +282,7 @@ var line_name:String = (edge && edge.line) ? edge.line.name : "徒歩";
 	}
 
 	// 組み合わせ
-	public function combination(arr:Array, num:int):Array {
+	public static function combination(arr:Array, num:int):Array {
 		if (num < 1 || num > arr.length) {
 			return [];
 		} else if (num == 1) {
